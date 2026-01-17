@@ -20,7 +20,7 @@ common warnings
 executable dev-launcher
     import:           warnings
     main-is:          Main.hs
-    other-modules:
+    other-modules:   Types
     build-depends:    base ^>=4.19 || ^>=4.20
     hs-source-dirs:   app
     default-language: GHC2021
