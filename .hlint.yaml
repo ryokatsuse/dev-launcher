@@ -1,0 +1,8 @@
+# HLint configuration
+# https://github.com/ndmitchell/hlint
+
+# Warnings currently triggered by the code
+- ignore: {name: "Unused LANGUAGE pragma"}
+
+# Some rules that are commonly disabled
+- ignore: {name: "Use newtype instead of data"}
