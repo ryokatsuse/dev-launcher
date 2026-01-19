@@ -2,7 +2,7 @@ module Main (main) where
 
 import System.Environment (getArgs)
 import Types (Project (..))
-import Config (loadProjects, getConfigPath)
+import Config (loadProjects, addProject, getConfigPath)
 
 main :: IO ()
 main = do
@@ -12,7 +12,8 @@ main = do
 run :: [String] -> IO ()
 run []             = putStrLn "Usage: dev-launcher <command>"
 run ["list"]       = listProjects
-run ["add", name]  = putStrLn $ "Adding project: " ++ name
+run ["add", name, path, cmd] = addProjectCmd name path cmd Nothing
+run ["add", name, path, cmd, port] = addProjectCmd name path cmd (Just $ read port)
 run ["help"]       = printHelp
 run args           = putStrLn $ "Unknown command: " ++ unwords args
 
@@ -30,6 +31,19 @@ printProject p = do
     putStrLn $ "  Port: " ++ maybe "none" show (projectPort p)
     putStrLn ""
 
+addProjectCmd :: String -> FilePath -> String -> Maybe Int -> IO ()
+addProjectCmd name path cmd port = do
+    let project = Project
+            { projectName = name
+            , projectPath = path
+            , projectCommand = cmd
+            , projectPort = port
+            }
+    result <- addProject project
+    case result of
+        Left err -> putStrLn $ "Error: " ++ err
+        Right () -> putStrLn $ "Added project: " ++ name
+
 printHelp :: IO ()
 printHelp = do
     configPath <- getConfigPath
@@ -37,9 +51,9 @@ printHelp = do
         [ "dev-launcher - Development Environment Launcher"
         , ""
         , "Commands:"
-        , "  list        List registered projects"
-        , "  add <name>  Add a new project"
-        , "  help        Show this help"
+        , "  list                              List registered projects"
+        , "  add <name> <path> <cmd> [port]    Add a new project"
+        , "  help                              Show this help"
         , ""
         , "Config file: " ++ configPath
         ]
