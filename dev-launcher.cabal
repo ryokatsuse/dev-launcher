@@ -20,7 +20,12 @@ common warnings
 executable dev-launcher
     import:           warnings
     main-is:          Main.hs
-    other-modules:   Types
+    other-modules:    Types
+                    , Config
     build-depends:    base ^>=4.19 || ^>=4.20
+                    , aeson
+                    , yaml
+                    , bytestring
+                    , directory
     hs-source-dirs:   app
     default-language: GHC2021

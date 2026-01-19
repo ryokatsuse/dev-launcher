@@ -2,6 +2,7 @@ module Main (main) where
 
 import System.Environment (getArgs)
 import Types (Project (..))
+import Config (loadProjects, getConfigPath)
 
 main :: IO ()
 main = do
@@ -16,23 +17,29 @@ run ["help"]       = printHelp
 run args           = putStrLn $ "Unknown command: " ++ unwords args
 
 listProjects :: IO ()
-listProjects = mapM_ printProject sampleProjects
+listProjects = do
+    result <- loadProjects
+    case result of
+        Left err -> putStrLn $ "Error: " ++ err
+        Right projects -> mapM_ printProject projects
 
 printProject :: Project -> IO ()
-printProject p = putStrLn $ projectName p ++ " - " ++ projectCommand p
-
-sampleProjects :: [Project]
-sampleProjects =
-    [ Project "web-app" "/home/user/web-app" "npm run dev" (Just 3000)
-    , Project "api-server" "/home/user/api" "cargo run" (Just 8080)
-    ]
+printProject p = do
+    putStrLn $ projectName p ++ " (" ++ projectPath p ++ ")"
+    putStrLn $ "  Command: " ++ projectCommand p
+    putStrLn $ "  Port: " ++ maybe "none" show (projectPort p)
+    putStrLn ""
 
 printHelp :: IO ()
-printHelp = putStrLn $ unlines
-    [ "dev-launcher - Development Environment Launcher"
-    , ""
-    , "Commands:"
-    , "  list        List registered projects"
-    , "  add <name>  Add a new project"
-    , "  help        Show this help"
-    ]
+printHelp = do
+    configPath <- getConfigPath
+    putStrLn $ unlines
+        [ "dev-launcher - Development Environment Launcher"
+        , ""
+        , "Commands:"
+        , "  list        List registered projects"
+        , "  add <name>  Add a new project"
+        , "  help        Show this help"
+        , ""
+        , "Config file: " ++ configPath
+        ]
