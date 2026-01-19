@@ -2,8 +2,11 @@ module Config
   ( loadProjects
   , saveProjects
   , addProject
+  , findProject
   , getConfigPath
   ) where
+
+import Data.List (find)
 
 import Data.Bifunctor (first)
 import Data.Yaml (decodeFileEither, encodeFile, ParseException)
@@ -51,3 +54,14 @@ addProject newProject = do
                 else do
                     saveProjects (projects ++ [newProject])
                     return $ Right ()
+
+-- | 名前でプロジェクトを検索する
+findProject :: String -> IO (Either String Project)
+findProject name = do
+    result <- loadProjects
+    case result of
+        Left err -> return $ Left err
+        Right projects ->
+            case find (\p -> projectName p == name) projects of
+                Nothing -> return $ Left $ "Project not found: " ++ name
+                Just project -> return $ Right project

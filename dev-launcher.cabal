@@ -22,11 +22,13 @@ executable dev-launcher
     main-is:          Main.hs
     other-modules:    Types
                     , Config
+                    , Process
     build-depends:    base ^>=4.19 || ^>=4.20
                     , aeson
                     , yaml
                     , bytestring
                     , directory
                     , filepath
+                    , process
     hs-source-dirs:   app
     default-language: GHC2021
