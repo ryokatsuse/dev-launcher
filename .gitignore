@@ -14,3 +14,7 @@ cabal.sandbox.config
 *~
 *.swp
 .stack-work/
+
+# Release artifacts
+release/
+*.tar.gz
