@@ -23,12 +23,20 @@ executable dev-launcher
     other-modules:    Types
                     , Config
                     , Process
+                    , Tui
     build-depends:    base ^>=4.19 || ^>=4.20
                     , aeson
                     , yaml
-                    , bytestring
                     , directory
                     , filepath
                     , process
+                    , brick
+                    , vty
+                    , vty-crossplatform
+                    , microlens
+                    , microlens-mtl
+                    , microlens-th
+                    , async
+                    , text
     hs-source-dirs:   app
     default-language: GHC2021

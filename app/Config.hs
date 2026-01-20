@@ -2,6 +2,8 @@ module Config
   ( loadProjects
   , saveProjects
   , addProject
+  , removeProject
+  , updateProject
   , findProject
   , getConfigPath
   ) where
@@ -65,3 +67,31 @@ findProject name = do
             case find (\p -> projectName p == name) projects of
                 Nothing -> return $ Left $ "Project not found: " ++ name
                 Just project -> return $ Right project
+
+-- | プロジェクトを削除する
+removeProject :: String -> IO (Either String ())
+removeProject name = do
+    result <- loadProjects
+    case result of
+        Left err -> return $ Left err
+        Right projects ->
+            if any (\p -> projectName p == name) projects
+                then do
+                    let newProjects = filter (\p -> projectName p /= name) projects
+                    saveProjects newProjects
+                    return $ Right ()
+                else return $ Left $ "Project not found: " ++ name
+
+-- | プロジェクトを更新する
+updateProject :: String -> Project -> IO (Either String ())
+updateProject name newProject = do
+    result <- loadProjects
+    case result of
+        Left err -> return $ Left err
+        Right projects ->
+            if any (\p -> projectName p == name) projects
+                then do
+                    let newProjects = map (\p -> if projectName p == name then newProject else p) projects
+                    saveProjects newProjects
+                    return $ Right ()
+                else return $ Left $ "Project not found: " ++ name
