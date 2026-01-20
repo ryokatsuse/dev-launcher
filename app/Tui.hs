@@ -18,8 +18,9 @@ import Graphics.Vty.CrossPlatform (mkVty)
 import Lens.Micro ((^.))
 import Lens.Micro.Mtl (use, (%=))
 import Lens.Micro.TH (makeLenses)
-import System.IO (Handle, hGetLine, hIsEOF)
+import System.IO (Handle, hGetLine, hIsEOF, hSetBuffering, BufferMode(..))
 import System.Process (createProcess, shell, CreateProcess(..), StdStream(..), ProcessHandle, terminateProcess)
+import Control.Exception (catch, SomeException)
 
 import Types (Project(..))
 
@@ -81,6 +82,10 @@ startAllProjects projs chan = do
                 }
         (_, Just hout, Just herr, ph) <- createProcess processConfig
 
+        -- バッファリングをLineBufferingに設定
+        hSetBuffering hout LineBuffering
+        hSetBuffering herr LineBuffering
+
         -- stdout読み取りスレッド
         reader1 <- async $ readOutput chan idx hout
         -- stderr読み取りスレッド
@@ -94,7 +99,7 @@ startAllProjects projs chan = do
 
 -- | 出力を読み取ってイベントを送信
 readOutput :: BChan CustomEvent -> Int -> Handle -> IO ()
-readOutput chan idx h = go
+readOutput chan idx h = go `catch` handleError
   where
     go = do
         eof <- hIsEOF h
@@ -104,6 +109,8 @@ readOutput chan idx h = go
                 line <- hGetLine h
                 writeBChan chan (LogUpdate idx (T.pack line))
                 go
+    handleError :: SomeException -> IO ()
+    handleError _ = return ()  -- ハンドルが閉じられた場合などは静かに終了
 
 -- | Brickアプリケーション定義
 app :: App AppState CustomEvent Name
@@ -141,10 +148,10 @@ renderPane s idx =
         isSelected = s ^. selectedPane == idx
         borderStyle = if isSelected then withAttr selectedAttr else id
         title = T.pack $ projectName proj ++ " :" ++ show (maybe 0 id (projectPort proj))
-        logWidget = vBox $ map (str . T.unpack) (takeLast 50 logs)
+        logLines = map (str . T.unpack) (takeLast 100 logs)
+        logWidget = if null logLines then str "Waiting for output..." else vBox logLines
     in borderStyle $ borderWithLabel (txt title) $
-        viewport (ProjectPane idx) Vertical $
-        padBottom Max logWidget
+        viewport (ProjectPane idx) Vertical logWidget
 
 -- | 最後のN行を取得
 takeLast :: Int -> [a] -> [a]
