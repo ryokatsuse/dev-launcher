@@ -39,5 +39,6 @@ executable dev-launcher
                     , microlens-th
                     , async
                     , text
+                    , unix
     hs-source-dirs:   app
     default-language: GHC2021

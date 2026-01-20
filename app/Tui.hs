@@ -12,6 +12,7 @@ import Brick.Widgets.Border (borderWithLabel, hBorder)
 import Brick.Widgets.Center (hCenter)
 import Control.Concurrent.Async (async, cancel, Async)
 import Control.Monad (forM)
+import Data.List (intersperse)
 import qualified Data.Text as T
 import Graphics.Vty as V
 import Graphics.Vty.CrossPlatform (mkVty)
@@ -19,8 +20,11 @@ import Lens.Micro ((^.))
 import Lens.Micro.Mtl (use, (%=))
 import Lens.Micro.TH (makeLenses)
 import System.IO (Handle, hGetLine, hIsEOF, hSetBuffering, BufferMode(..))
-import System.Process (createProcess, shell, CreateProcess(..), StdStream(..), ProcessHandle, terminateProcess)
+import System.Process (createProcess, shell, CreateProcess(..), StdStream(..), ProcessHandle, getPid)
+import System.Posix.Signals (signalProcessGroup, sigKILL)
+import System.Posix.Types (CPid(..))
 import Control.Exception (catch, SomeException)
+import Control.Concurrent (threadDelay)
 
 import Types (Project(..))
 
@@ -66,10 +70,24 @@ runTui projs = do
     -- アプリを実行
     finalState <- customMain initialVty buildVty (Just chan) app initialState
 
-    -- クリーンアップ
-    mapM_ terminateProcess (finalState ^. processHandles)
+    -- クリーンアップ（プロセスグループごとSIGKILL）
+    mapM_ killProcessGroup (finalState ^. processHandles)
     mapM_ cancel (finalState ^. asyncReaders)
+    threadDelay 100000  -- 100ms待機
     putStrLn "All processes stopped."
+
+-- | プロセスグループ全体をSIGKILLで強制終了
+killProcessGroup :: ProcessHandle -> IO ()
+killProcessGroup ph = do
+    maybePid <- getPid ph
+    case maybePid of
+        Just pid -> do
+            let pgid = CPid (fromIntegral pid)
+            signalProcessGroup sigKILL pgid `catch` ignoreError
+        Nothing -> return ()
+  where
+    ignoreError :: SomeException -> IO ()
+    ignoreError _ = return ()
 
 -- | プロジェクトを全て起動
 startAllProjects :: [Project] -> BChan CustomEvent -> IO ([ProcessHandle], [Async ()])
@@ -79,6 +97,7 @@ startAllProjects projs chan = do
                 { cwd = Just (projectPath proj)
                 , std_out = CreatePipe
                 , std_err = CreatePipe
+                , create_group = True
                 }
         (_, Just hout, Just herr, ph) <- createProcess processConfig
 
@@ -135,10 +154,9 @@ drawUI s = [ui]
     projectPanes = case length (s ^. projects) of
         0 -> str "No projects"
         1 -> renderPane s 0
-        2 -> hBox [renderPane s 0, vBorder, renderPane s 1]
-        _ -> hBox $ map (renderPane s) [0 .. length (s ^. projects) - 1]
+        _ -> hBox $ intersperse vBorder' $ map (renderPane s) [0 .. length (s ^. projects) - 1]
 
-    vBorder = vLimit 100 $ fill '│'
+    vBorder' = hLimit 1 $ fill '│'
 
 -- | 単一のペインを描画
 renderPane :: AppState -> Int -> Widget Name
