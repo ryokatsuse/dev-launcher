@@ -2,8 +2,11 @@ module Main (main) where
 
 import System.Environment (getArgs)
 import Types (Project (..))
+import Control.Monad (forM)
+import Data.Either (partitionEithers)
+import System.Process (waitForProcess)
 import Config (loadProjects, addProject, findProject, getConfigPath)
-import Process (startProject)
+import Process (startProject, startProjectWithPrefix)
 
 main :: IO ()
 main = do
@@ -16,6 +19,7 @@ run ["list"]       = listProjects
 run ["add", name, path, cmd] = addProjectCmd name path cmd Nothing
 run ["add", name, path, cmd, port] = addProjectCmd name path cmd (Just $ read port)
 run ["start", name] = startProjectCmd name
+run ("start-all" : names) = startMultipleCmd names
 run ["help"]       = printHelp
 run args           = putStrLn $ "Unknown command: " ++ unwords args
 
@@ -53,6 +57,23 @@ startProjectCmd name = do
         Left err -> putStrLn $ "Error: " ++ err
         Right project -> startProject project
 
+startMultipleCmd :: [String] -> IO ()
+startMultipleCmd [] = putStrLn "Usage: dev-launcher start-all <name1> <name2> ..."
+startMultipleCmd names = do
+    -- 各プロジェクトを検索
+    results <- forM names findProject
+    let (errors, projects) = partitionEithers results
+
+    -- エラーがあれば表示
+    mapM_ (\err -> putStrLn $ "Error: " ++ err) errors
+
+    -- プロジェクトを起動してハンドルを取得
+    handles <- forM projects startProjectWithPrefix
+
+    -- すべてのプロセスが終了するまで待機
+    putStrLn $ "Started " ++ show (length projects) ++ " project(s). Press Ctrl+C to stop."
+    mapM_ waitForProcess handles
+
 printHelp :: IO ()
 printHelp = do
     configPath <- getConfigPath
@@ -63,6 +84,7 @@ printHelp = do
         , "  list                              List registered projects"
         , "  add <name> <path> <cmd> [port]    Add a new project"
         , "  start <name>                      Start a project"
+        , "  start-all <name1> <name2> ...     Start multiple projects"
         , "  help                              Show this help"
         , ""
         , "Config file: " ++ configPath
